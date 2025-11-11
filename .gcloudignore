@@ -1,0 +1,26 @@
+# This file tells gcloud which files to ignore when uploading sources.
+# For more information, see: gcloud topic gcloudignore
+
+# Python virtual environment
+/venv/
+/.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Git directory
+.git/
+
+# Ignore the ignore files themselves
+.gitignore
+.dockerignore
+.gcloudignore
+
+# IDE settings
+.vscode/
+.idea/
+
+# Local instance files
+instance/
+.mypy_cache/
