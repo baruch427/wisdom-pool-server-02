@@ -1,3 +1,4 @@
+from firebase_admin import firestore
 from fastapi import APIRouter, HTTPException, status, Body, Query
 from app.models import (
     Stream, StreamContent, Drop, DropContent, StreamDropPlacement, 
@@ -51,69 +52,73 @@ def get_stream(stream_id: str):
     return doc.to_dict()
 
 @router.post("/streams/{stream_id}/drops", status_code=status.HTTP_201_CREATED, response_model=AddDropResponse)
-@db.transactional
 def add_drop_to_stream(
     stream_id: str,
     drop_content: DropContent,
-    creator_id: str = Body(..., example="user_xyz"),
-    transaction=None
+    creator_id: str = Body(..., example="user_xyz")
 ):
     """
     Adds a new drop to a stream. This is a transactional operation.
     """
-    stream_ref = streams_collection.document(stream_id)
-    stream_doc = stream_ref.get(transaction=transaction)
+    transaction = db.transaction()
 
-    if not stream_doc.exists:
-        raise HTTPException(status_code=404, detail="Stream not found")
+    @firestore.transactional
+    def _add_drop(transaction, stream_id, drop_content, creator_id):
+        stream_ref = streams_collection.document(stream_id)
+        stream_doc = stream_ref.get(transaction=transaction)
 
-    stream_data = stream_doc.to_dict()
+        if not stream_doc.exists:
+            raise HTTPException(status_code=404, detail="Stream not found")
+
+        stream_data = stream_doc.to_dict()
+        
+        # 1. Create the new drop
+        drop_id = str(uuid.uuid4())
+        new_drop = Drop(
+            drop_id=drop_id,
+            creator_id=creator_id,
+            created_at=datetime.datetime.utcnow(),
+            content=drop_content
+        )
+        drops_collection.document(drop_id).set(new_drop.dict(), transaction=transaction)
+
+        # 2. Create the stream-drop placement
+        placement_id = str(uuid.uuid4())
+        prev_placement_id = stream_data.get('last_drop_placement_id')
+
+        new_placement = StreamDropPlacement(
+            placement_id=placement_id,
+            stream_id=stream_id,
+            drop_id=drop_id,
+            next_placement_id=None,
+            prev_placement_id=prev_placement_id,
+            added_at=datetime.datetime.utcnow()
+        )
+        stream_drops_collection.document(placement_id).set(new_placement.dict(), transaction=transaction)
+
+        # 3. Update the previous placement's next_placement_id
+        if prev_placement_id:
+            prev_placement_ref = stream_drops_collection.document(prev_placement_id)
+            transaction.update(prev_placement_ref, {'next_placement_id': placement_id})
+
+        # 4. Update the stream's head and tail pointers
+        update_data = {'last_drop_placement_id': placement_id}
+        if not stream_data.get('first_drop_placement_id'):
+            update_data['first_drop_placement_id'] = placement_id
+        
+        transaction.update(stream_ref, update_data)
+
+        return AddDropResponse(
+            **new_drop.dict(),
+            placement_id=placement_id,
+            stream_id=stream_id,
+            position_info={
+                "next_placement_id": None,
+                "prev_placement_id": prev_placement_id
+            }
+        )
     
-    # 1. Create the new drop
-    drop_id = str(uuid.uuid4())
-    new_drop = Drop(
-        drop_id=drop_id,
-        creator_id=creator_id,
-        created_at=datetime.datetime.utcnow(),
-        content=drop_content
-    )
-    drops_collection.document(drop_id).set(new_drop.dict(), transaction=transaction)
-
-    # 2. Create the stream-drop placement
-    placement_id = str(uuid.uuid4())
-    prev_placement_id = stream_data.get('last_drop_placement_id')
-
-    new_placement = StreamDropPlacement(
-        placement_id=placement_id,
-        stream_id=stream_id,
-        drop_id=drop_id,
-        next_placement_id=None,
-        prev_placement_id=prev_placement_id,
-        added_at=datetime.datetime.utcnow()
-    )
-    stream_drops_collection.document(placement_id).set(new_placement.dict(), transaction=transaction)
-
-    # 3. Update the previous placement's next_placement_id
-    if prev_placement_id:
-        prev_placement_ref = stream_drops_collection.document(prev_placement_id)
-        transaction.update(prev_placement_ref, {'next_placement_id': placement_id})
-
-    # 4. Update the stream's head and tail pointers
-    update_data = {'last_drop_placement_id': placement_id}
-    if not stream_data.get('first_drop_placement_id'):
-        update_data['first_drop_placement_id'] = placement_id
-    
-    transaction.update(stream_ref, update_data)
-
-    return AddDropResponse(
-        **new_drop.dict(),
-        placement_id=placement_id,
-        stream_id=stream_id,
-        position_info={
-            "next_placement_id": None,
-            "prev_placement_id": prev_placement_id
-        }
-    )
+    return _add_drop(transaction, stream_id, drop_content, creator_id)
 
 @router.get("/streams/{stream_id}/drops", response_model=GetDropsResponse)
 def get_drops_in_stream(
