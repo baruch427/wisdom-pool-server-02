@@ -14,7 +14,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy the rest of the application's code
 COPY ./app /code/app
-COPY ./firebase-credentials.json /code/firebase-credentials.json
 
 # Expose port 8000 to the outside world
 EXPOSE 8000

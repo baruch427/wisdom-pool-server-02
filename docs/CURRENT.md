@@ -17,6 +17,6 @@ In this phase the server is to impliment
 - **/Health** returns json indicating the title og the GitHub Push and the time the server started
 - **/pool** the pool POST and GET end points
 
-
+Addendum: Testing will first be witha live server to check that Deploy all works and then locally
 
 
