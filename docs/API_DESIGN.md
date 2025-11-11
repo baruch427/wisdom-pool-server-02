@@ -8,8 +8,6 @@
 
 ### **Architecture Characteristics**
 - **Read-heavy workload**: Stream reading >> stream writing
-- **Sequential access**: Users scroll through drops in order
-- **Eventual consistency**: New drops don't need immediate visibility
 - **Linked list structure**: Drops connected via next/prev pointers
 
 ### **Data Hierarchy**
@@ -49,12 +47,8 @@ Drop (1) → Can be in → Multiple Streams (N)
   "pool_id": "string",
   "creator_id": "string",
   "created_at": "timestamp",
-  "first_drop_id": "string|null",
-  "last_drop_id": "string|null",
-  "stats": {
-    "views": "number",
-    "shares": "number"
-  },
+  "first_drop_placement_id": "string|null",
+  "last_drop_placement_id": "string|null",
   "content": {
     "title": "string",
     "description": "string (supports basic HTML + drop links)",
@@ -75,12 +69,12 @@ Drop (1) → Can be in → Multiple Streams (N)
     "title": "string",
     "text": "string",
     "images": ["url1", "url2"],
-    "type": "text|image|mixed"
+    "type": "string"
   }
 }
 ```
 
-### **Stream-Drop Association (Linked List)**
+### **Stream-Drop-Placement (Linked List)**
 ```json
 {
   "placement_id": "string",
@@ -109,12 +103,8 @@ GET /api/v1/streams/{stream_id}
   "pool_id": "string",
   "creator_id": "string",
   "created_at": "2025-11-05T10:00:00Z",
-  "first_drop_id": "string|null",
-  "last_drop_id": "string|null",
-  "stats": {
-    "views": 0,
-    "shares": 0
-  },
+  "first_drop_placement_id": "string|null",
+  "last_drop_placement_id": "string|null",
   "content": {
     "title": "string",
     "description": "string",
@@ -125,7 +115,7 @@ GET /api/v1/streams/{stream_id}
 }
 ```
 
-#### **2. Get Drops in Stream (Pagination)**
+#### **2. Get Drops in Stream**
 ```http
 GET /api/v1/streams/{stream_id}/drops?from_placement_id={id}&limit={num}
 ```
@@ -148,7 +138,7 @@ GET /api/v1/streams/{stream_id}/drops?from_placement_id={id}&limit={num}
         "title": "string",
         "text": "string",
         "images": ["url1", "url2"],
-        "type": "text"
+        "type": "string"
       }
     }
   ],
@@ -171,7 +161,7 @@ GET /api/v1/drops/{drop_id}
     "title": "string",
     "text": "string",
     "images": ["url1", "url2"],
-    "type": "text"
+    "type": "string"
   }
 }
 ```
@@ -190,10 +180,6 @@ GET /api/v1/streams/search?q={query}&limit={num}
   "streams": [
     {
       "stream_id": "string",
-      "stats": {
-        "views": 150,
-        "shares": 12
-      },
       "content": {
         "title": "string",
         "description": "string",
@@ -265,13 +251,9 @@ Content-Type: application/json
   "pool_id": "string",
   "creator_id": "string",
   "created_at": "2025-11-05T10:00:00Z",
-  "first_drop_id": null,
-  "last_drop_id": null,
-  "stats": {
-    "views": 0,
-    "shares": 0
-  },
-  "content": {
+  "first_drop_placement_id": "string|null",
+  "last_drop_placement_id": "string|null",
+"content": {
     "title": "string",
     "description": "string",
     "ai_framing": "string",
@@ -294,10 +276,12 @@ Content-Type: application/json
     "title": "string", 
     "text": "string",
     "images": ["url1", "url2"],
-    "type": "text|image|mixed"
+    "type": "string"
   }
 }
 ```
+When a drop is added to a stream it is first added to Firestore and a drop id is got, a Stream-Drop-Placement item is than added to the database that points to the drop just created, that Stream-Drop-Placement contains the stream_id. Any other drops are added with the linked list being maintained. When the last Stream-Drop-Placement is added the Stream is updated so that the  first_drop_placement_id points to ththe first Stream-Drop-Placement and last_drop_placement_id points to the last Stream-Drop-Placement
+
 **Request Body (Insert at specific position):**
 ```json
 {
@@ -306,7 +290,7 @@ Content-Type: application/json
     "title": "string",
     "text": "string", 
     "images": ["url1", "url2"],
-    "type": "text|image|mixed"
+    "type": "string"
   },
   "position": {
     "after": "existing_placement_id"
@@ -326,7 +310,7 @@ Content-Type: application/json
     "title": "string",
     "text": "string",
     "images": ["url1", "url2"],
-    "type": "text"
+    "type": "string"
   },
   "position_info": {
     "next_placement_id": "string|null",

@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  # Your FastAPI Application
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Tell the app to use the emulator
+      - FIRESTORE_EMULATOR_HOST=firestore-emulator:8080
+      - GOOGLE_CLOUD_PROJECT=local-dev # Project ID for the emulator
+    depends_on:
+      - firestore-emulator
+
+  # Google Cloud Firestore Emulator
+  firestore-emulator:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
+    command: >
+      gcloud beta emulators firestore start --host-port=0.0.0.0:8080
+    ports:
+      - "8081:8080" # Port 8081 on host maps to 8080 in container
