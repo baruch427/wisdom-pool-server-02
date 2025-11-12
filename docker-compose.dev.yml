@@ -1,0 +1,17 @@
+# This Docker Compose file is for local development with REAL Firebase.
+# Use this when you want to:
+# - Access the server API at http://localhost:8000
+# - View data in Firebase Console
+# - Run custom scripts against the real database
+
+services:
+  app:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./app:/code/app
+      - ./firebase-credentials.json:/firebase-credentials.json:ro
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/firebase-credentials.json

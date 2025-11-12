@@ -47,9 +47,24 @@ The test steps are ordered logically to mimic a real-world usage pattern. Each s
         *   The `from_placement_id` query parameter works for pagination, allowing a client to fetch the "next page" of drops.
         *   The `has_more` boolean in the response is accurately calculated, returning `true` when more drops are available and `false` on the final page.
 
-## 3. 🚀 The Testing Approach: A Step-by-Step Guide
+## 3. 🚀 How to Run the Tests
 
-This section outlines the complete, end-to-end process for running the automated test suite.
+This section outlines the process for running the automated test suite.
+
+### Recommended Method: Use the Automation Script
+
+The simplest and most reliable way to run the entire test suite is to use the provided PowerShell script. This script handles starting the environment, running the tests, and cleaning up afterward.
+
+**From the project root, simply run:**
+```powershell
+./run_tests.ps1
+```
+
+The script will print its progress and exit with a success or failure code, making it ideal for both local development and CI/CD pipelines.
+
+### Manual Method: Step-by-Step Guide
+
+For developers who want to run the steps manually or debug the process, follow the guide below.
 
 ### Step 1: Start the Test Environment
 
@@ -69,23 +84,24 @@ This command will:
 
 ### Step 2: Run the Tests
 
-Once the containers are running, execute the test suite using `pytest`.
+Once the containers are running, execute the test suite **inside the `app` container**. This ensures the tests run in the exact same environment as the application, without depending on your local machine's Python setup.
 
 ```bash
-pytest -v
+# Execute pytest inside the 'app' container
+docker-compose -f docker-compose.test.yml exec app pytest -v ztest/
 ```
 
-*   `pytest`: This command automatically discovers and runs all files named `test_*.py` or `*_test.py` and executes the functions named `test_*` within them.
-*   `-v` (verbose): This provides more detailed output for each test being run.
+*   `docker-compose exec app`: This command tells Docker to run the following command (`pytest -v ztest/`) inside the container named `app`.
+*   `pytest -v ztest/`: This runs the test suite located in the `ztest` directory with verbose output.
 
-`pytest` will execute the functions in `ztest/test_api.py`, making live HTTP requests to the `app` container, which in turn communicates with the `firestore-emulator` container.
+`pytest` will make live HTTP requests to the `app` service, which in turn communicates with the `firestore-emulator` container.
 
 ### Step 3: View Test Coverage (Optional)
 
-To generate a report on which lines of application code were executed by the tests, you can run:
+To generate a report on which lines of application code were executed by the tests, run `pytest` with the `--cov` flag inside the container:
 
 ```bash
-pytest --cov=app
+docker-compose -f docker-compose.test.yml exec app pytest --cov=app ztest/
 ```
 
 This will provide a terminal report showing the percentage of code in the `app` directory that is covered by the test suite.
@@ -184,7 +200,10 @@ db = firestore.client()
 ### The Ideal Workflow: A Summary
 
 1.  **Start Docker Desktop.**
-2.  Run `docker-compose -f docker-compose.test.yml up --build -d` to start the environment.
-3.  Run `pytest -v` to execute the tests.
-4.  Review the output for any failures.
-5.  When finished, run `docker-compose -f docker-compose.test.yml down` to clean up.
+2.  Run `./run_automated_tests.ps1` and observe the output.
+
+Alternatively, for manual control:
+1.  Run `docker-compose -f docker-compose.test.yml up --build -d` to start the environment.
+2.  Run `docker-compose -f docker-compose.test.yml exec app pytest -v ztest/` to execute the tests.
+3.  Review the output for any failures.
+4.  When finished, run `docker-compose -f docker-compose.test.yml down` to clean up.

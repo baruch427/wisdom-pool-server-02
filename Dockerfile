@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy the rest of the application's code
 COPY ./app /code/app
+COPY ./ztest /code/ztest
 
 # Expose port 8000 to the outside world
 EXPOSE 8000

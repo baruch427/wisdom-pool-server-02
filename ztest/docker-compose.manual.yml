@@ -1,0 +1,23 @@
+# This Docker Compose file is for local development and manual testing.
+# It runs the server with hot-reloading enabled.
+
+services:
+  app:
+    build: ..
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ../app:/code/app
+    ports:
+      - "8000:8000"
+    environment:
+      - FIRESTORE_EMULATOR_HOST=firestore-emulator:8080
+      - GOOGLE_CLOUD_PROJECT=local-dev
+    depends_on:
+      - firestore-emulator
+
+  firestore-emulator:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
+    command: >
+      gcloud beta emulators firestore start --host-port=0.0.0.0:8080
+    ports:
+      - "8081:8080"
