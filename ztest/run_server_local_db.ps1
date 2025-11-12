@@ -4,9 +4,10 @@
 # Stop on any error
 $ErrorActionPreference = "Stop"
 
-Write-Host "--- Starting Development Environment (Docker Compose) ---" -ForegroundColor Green
+Write-Host "--- Starting Test Environment with Emulator (Docker Compose) ---" -ForegroundColor Green
 Write-Host "The server will be available at http://localhost:8000"
 Write-Host "The interactive API docs (Swagger UI) will be at http://localhost:8000/docs"
+Write-Host "Note: Requires Java 21+ for Firestore emulator" -ForegroundColor Yellow
 Write-Host "Press CTRL+C to stop the server." -ForegroundColor Yellow
 
 # Start containers and attach to the logs.

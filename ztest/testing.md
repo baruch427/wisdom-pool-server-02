@@ -57,7 +57,7 @@ The simplest and most reliable way to run the entire test suite is to use the pr
 
 **From the project root, simply run:**
 ```powershell
-./run_tests.ps1
+./ztest/run_automated_tests.ps1
 ```
 
 The script will print its progress and exit with a success or failure code, making it ideal for both local development and CI/CD pipelines.
@@ -71,7 +71,7 @@ For developers who want to run the steps manually or debug the process, follow t
 The entire test environment is managed by Docker Compose. To build and start the services, run the following command from the project's root directory:
 
 ```bash
-docker-compose -f docker-compose.test.yml up --build -d
+docker-compose -f ztest/docker-compose.automated.yml up --build -d
 ```
 
 *   `--build`: This flag tells Docker Compose to rebuild the application image if the source code (e.g., any Python files) has changed.
@@ -88,7 +88,7 @@ Once the containers are running, execute the test suite **inside the `app` conta
 
 ```bash
 # Execute pytest inside the 'app' container
-docker-compose -f docker-compose.test.yml exec app pytest -v ztest/
+docker-compose -f ztest/docker-compose.automated.yml exec app pytest -v ztest/
 ```
 
 *   `docker-compose exec app`: This command tells Docker to run the following command (`pytest -v ztest/`) inside the container named `app`.
@@ -101,7 +101,7 @@ docker-compose -f docker-compose.test.yml exec app pytest -v ztest/
 To generate a report on which lines of application code were executed by the tests, run `pytest` with the `--cov` flag inside the container:
 
 ```bash
-docker-compose -f docker-compose.test.yml exec app pytest --cov=app ztest/
+docker-compose -f ztest/docker-compose.automated.yml exec app pytest --cov=app ztest/
 ```
 
 This will provide a terminal report showing the percentage of code in the `app` directory that is covered by the test suite.
@@ -111,7 +111,7 @@ This will provide a terminal report showing the percentage of code in the `app` 
 After you are finished testing, it is important to stop and remove the containers to free up system resources.
 
 ```bash
-docker-compose -f docker-compose.test.yml down
+docker-compose -f ztest/docker-compose.automated.yml down
 ```
 
 This command stops and removes the containers, networks, and volumes created by `up`. The in-memory data in the Firestore emulator is completely wiped, ensuring a clean slate for the next test run.
@@ -136,7 +136,7 @@ Instead of testing against a live database, use the **Google Cloud Firestore Emu
 
 Use Docker and Docker Compose to define the entire test environment in code. This guarantees that every developer and the CI/CD pipeline use the exact same setup.
 
-**Example `docker-compose.test.yml`:**
+**Example `ztest/docker-compose.automated.yml`:**
 ```yaml
 version: '3.8'
 services:
@@ -200,10 +200,10 @@ db = firestore.client()
 ### The Ideal Workflow: A Summary
 
 1.  **Start Docker Desktop.**
-2.  Run `./run_automated_tests.ps1` and observe the output.
+2.  Run `./ztest/run_automated_tests.ps1` and observe the output.
 
 Alternatively, for manual control:
-1.  Run `docker-compose -f docker-compose.test.yml up --build -d` to start the environment.
-2.  Run `docker-compose -f docker-compose.test.yml exec app pytest -v ztest/` to execute the tests.
+1.  Run `docker-compose -f ztest/docker-compose.automated.yml up --build -d` to start the environment.
+2.  Run `docker-compose -f ztest/docker-compose.automated.yml exec app pytest -v ztest/` to execute the tests.
 3.  Review the output for any failures.
-4.  When finished, run `docker-compose -f docker-compose.test.yml down` to clean up.
+4.  When finished, run `docker-compose -f ztest/docker-compose.automated.yml down` to clean up.
