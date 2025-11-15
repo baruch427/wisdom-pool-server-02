@@ -19,6 +19,30 @@ This document outlines the API endpoints for the Wisdom Pool Server.
   }
   ```
 
+### Get In-Memory Logs
+
+- **Endpoint:** `GET /logs`
+- **Description:** Returns all logs captured in memory since the last time they were cleared. This is intended for testing and debugging purposes.
+- **Arguments:** None
+- **Return Value:** `text/plain`
+  ```
+  2025-11-15 10:00:00,000 - api_logger - INFO - Log cleared.
+  2025-11-15 10:01:00,000 - api_logger - INFO - Creating new stream...
+  ...
+  ```
+
+### Clear In-Memory Logs
+
+- **Endpoint:** `DELETE /logs/clear`
+- **Description:** Clears all logs currently stored in memory.
+- **Arguments:** None
+- **Return Value:** `JSON`
+  ```json
+  {
+    "message": "Log cleared."
+  }
+  ```
+
 ---
 
 ## Pools
