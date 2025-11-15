@@ -12,4 +12,4 @@ Write-Host "Press CTRL+C to stop the server." -ForegroundColor Yellow
 
 # Start containers and attach to the logs.
 # --build ensures the image is updated if Dockerfile or requirements change.
-docker-compose -f docker-compose.manual.yml up --build
+docker-compose -f ztest/docker-compose.manual.yml up --build

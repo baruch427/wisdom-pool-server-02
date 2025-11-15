@@ -21,4 +21,4 @@ Write-Host "Press CTRL+C to stop the server." -ForegroundColor Yellow
 Write-Host ""
 
 # Start the container with logs attached
-docker-compose -f ../docker-compose.dev.yml up --build
+docker-compose -f docker-compose.dev.yml up --build

@@ -26,7 +26,6 @@ class Stream(BaseModel):
     created_at: datetime
     first_drop_placement_id: Optional[str] = Field(None, example="placement_789")
     last_drop_placement_id: Optional[str] = Field(None, example="placement_987")
-    drop_count: int = 0
     content: StreamContent
 
 class DropContent(BaseModel):
@@ -49,29 +48,13 @@ class StreamDropPlacement(BaseModel):
     prev_placement_id: Optional[str] = None
     added_at: datetime
 
-class AddDropPosition(BaseModel):
-    after: str = Field(..., example="placement_654")
-
-class AddDropRequest(BaseModel):
-    creator_id: str = Field(..., example="user_xyz")
-    content: DropContent
-    position: Optional[AddDropPosition] = None
-
-class AddExistingDropRequest(BaseModel):
-    drop_id: str = Field(..., example="drop_xyz")
-    position: Optional[AddDropPosition] = None
-
-class AddExistingDropResponse(BaseModel):
-    success: bool = True
-    placement_id: str
-    stream_id: str
-    drop_id: str
-    position_info: dict
-
 class AddDropResponse(Drop):
     placement_id: str
     stream_id: str
     position_info: dict
+
+class AddDropsResponse(BaseModel):
+    drops: List[AddDropResponse]
 
 class DropInStream(Drop):
     placement_id: str
