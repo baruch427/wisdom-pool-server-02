@@ -123,4 +123,43 @@ def test_paginate_drops(client, test_data):
     assert page2_data['total_count'] == 3
     assert page2_data['drops'][0]['content']['title'] == "Drop Number 3"
     print_response("Retrieved Page 2 (last drop)", res_page2)
+
+def test_update_user_progress(client, test_data):
+    """STEP 7: Updating user progress."""
+    print("STEP 7: Updating user progress...")
+    assert 'drops' in test_data and len(test_data['drops']) > 0, "Drops not found from previous test."
+    progress_payload = {
+        "pool_id": test_data['pool_id'],
+        "stream_id": test_data['stream_id'],
+        "drop_id": test_data['drops'][0]['drop_id'],
+        "placement_id": test_data['drops'][0]['placement_id']
+    }
+    res = client.post(f"{API_V1_PREFIX}/user/progress", json=progress_payload)
+    assert res.status_code == 204, "Failed to update user progress!"
+    print_response("User progress updated", res)
+
+def test_get_user_session_sync(client, test_data):
+    """STEP 8: Getting user session sync."""
+    print("STEP 8: Getting user session sync...")
+    res = client.get(f"{API_V1_PREFIX}/user/session-sync")
+    assert res.status_code == 200, "Failed to get user session sync!"
+    response_json = res.json()
+    assert response_json['has_history'] is True
+    assert response_json['last_active_context']['pool_id'] == test_data['pool_id']
+    assert response_json['last_active_context']['stream_id'] == test_data['stream_id']
+    print_response("User session sync retrieved", res)
+
+def test_get_river_feed(client, test_data):
+    """STEP 9: Getting the river feed for the pool."""
+    print("STEP 9: Getting the river feed for the pool...")
+    assert 'pool_id' in test_data, "Pool ID not found from previous test."
+    res = client.get(f"{API_V1_PREFIX}/pools/{test_data['pool_id']}/river")
+    assert res.status_code == 200, "Failed to get river feed!"
+    response_json = res.json()
+    assert len(response_json['streams']) == 1
+    stream = response_json['streams'][0]
+    assert stream['stream_id'] == test_data['stream_id']
+    assert stream['user_progress']['last_read_placement_id'] == test_data['drops'][0]['placement_id']
+    assert stream['user_progress']['is_completed'] is False
+    print_response("River feed retrieved", res)
     print("\n✅ All API tests passed successfully! ✅")

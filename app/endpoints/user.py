@@ -1,0 +1,80 @@
+from fastapi import APIRouter, Depends, HTTPException
+from app.db import users_collection
+from app.auth import get_current_user_id
+from app.models import (
+    UserProgress,
+    UserSessionSyncResponse,
+    LastActiveContext,
+    StreamHistoryEntry,
+    UserState,
+)
+from datetime import datetime, timezone
+import logging
+
+router = APIRouter()
+
+
+@router.post("/progress", status_code=204)
+async def update_user_progress(
+    progress: UserProgress, user_id: str = Depends(get_current_user_id)
+):
+    """
+    Idempotent heartbeat to record where the user is currently looking.
+    This updates both the last active context and the specific stream history.
+    """
+    try:
+        now = datetime.now(timezone.utc)
+        user_state_ref = users_collection.document(user_id).collection("progress").document("main")
+
+        update_data = {
+            "last_active_context": {
+                "pool_id": progress.pool_id,
+                "stream_id": progress.stream_id,
+                "drop_id": progress.drop_id,
+                "placement_id": progress.placement_id,
+                "timestamp": now.isoformat(),
+            },
+            f"stream_history.{progress.stream_id}": {
+                "last_read_drop_id": progress.drop_id,
+                "last_read_placement_id": progress.placement_id,
+                "updated_at": now.isoformat(),
+            },
+        }
+
+        # ToDo: Check if the stream is completed and set is_completed flag
+
+        user_state_ref.set(update_data, merge=True)
+
+    except Exception as e:
+        logging.error(f"Error updating user progress for {user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to update user progress.",
+        )
+
+
+@router.get("/session-sync", response_model=UserSessionSyncResponse)
+async def get_user_session_sync(user_id: str = Depends(get_current_user_id)):
+    """
+    Called on application bootstrap to decide where to route the user.
+    Returns the last active context or an empty state if no history exists.
+    """
+    try:
+        user_state_ref = users_collection.document(user_id).collection("progress").document("main")
+        doc = user_state_ref.get()
+
+        if doc.exists:
+            user_state = UserState.parse_obj(doc.to_dict())
+            return UserSessionSyncResponse(
+                last_active_context=user_state.last_active_context,
+                has_history=user_state.last_active_context is not None,
+            )
+        else:
+            return UserSessionSyncResponse(last_active_context=None, has_history=False)
+
+    except Exception as e:
+        logging.error(f"Error getting session sync for user {user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve user session data.",
+        )

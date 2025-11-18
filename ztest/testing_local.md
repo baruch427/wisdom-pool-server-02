@@ -55,9 +55,16 @@ This section outlines the process for running the automated test suite.
 
 The simplest and most reliable way to run the entire test suite is to use the provided PowerShell script. This script handles starting the environment, running the tests, and cleaning up afterward.
 
-**From the project root, simply run:**
+**⚠️ IMPORTANT: Run from the project root directory**
+
+Navigate to the project root directory (`wisdom-pool-server-02`) before running the script:
+
 ```powershell
-./ztest/run_automated_tests.ps1
+# If you're in the ztest directory, go up one level first:
+cd ..
+
+# Then run the script from the project root:
+.\ztest\run_automated_tests.ps1
 ```
 
 The script will print its progress and exit with a success or failure code, making it ideal for both local development and CI/CD pipelines.
@@ -68,7 +75,7 @@ For developers who want to run the steps manually or debug the process, follow t
 
 ### Step 1: Start the Test Environment
 
-The entire test environment is managed by Docker Compose. To build and start the services, run the following command from the project's root directory:
+The entire test environment is managed by Docker Compose. To build and start the services, run the following command **from the project's root directory** (`wisdom-pool-server-02`):
 
 ```bash
 docker-compose -f ztest/docker-compose.automated.yml up --build -d
@@ -199,8 +206,10 @@ db = firestore.client()
 
 ### The Ideal Workflow: A Summary
 
+**⚠️ All commands must be run from the project root directory (`wisdom-pool-server-02`)**
+
 1.  **Start Docker Desktop.**
-2.  Run `./ztest/run_automated_tests.ps1` and observe the output.
+2.  Run `.\ztest\run_automated_tests.ps1` and observe the output.
 
 Alternatively, for manual control:
 1.  Run `docker-compose -f ztest/docker-compose.automated.yml up --build -d` to start the environment.

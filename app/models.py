@@ -71,3 +71,48 @@ class HealthStatus(BaseModel):
     start_time_utc: str
     server_time_utc: str
     commit_hash: str
+
+
+# New models for User State and River Feed
+
+
+class UserProgress(BaseModel):
+    pool_id: str
+    stream_id: str
+    drop_id: str
+    placement_id: str
+
+
+class LastActiveContext(UserProgress):
+    timestamp: datetime
+
+
+class StreamHistoryEntry(BaseModel):
+    last_read_drop_id: str
+    last_read_placement_id: str
+    is_completed: bool = False
+    updated_at: datetime
+
+
+class UserState(BaseModel):
+    last_active_context: Optional[LastActiveContext] = None
+    stream_history: dict[str, StreamHistoryEntry] = {}
+
+
+class UserSessionSyncResponse(BaseModel):
+    last_active_context: Optional[LastActiveContext] = None
+    has_history: bool
+
+
+class UserStreamProgress(BaseModel):
+    last_read_placement_id: Optional[str] = None
+    is_completed: bool = False
+
+
+class StreamWithProgress(Stream):
+    user_progress: UserStreamProgress
+
+
+class RiverFeedResponse(BaseModel):
+    streams: List[StreamWithProgress]
+    next_cursor: Optional[str] = None

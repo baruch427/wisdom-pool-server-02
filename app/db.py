@@ -21,3 +21,6 @@ drops_collection = db.collection('drops')
 
 # Reference to the 'stream_drops' collection
 stream_drops_collection = db.collection('stream_drops')
+
+# Reference to the 'users' collection
+users_collection = db.collection('users')

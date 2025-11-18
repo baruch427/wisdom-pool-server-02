@@ -5,6 +5,7 @@ import os
 
 # Import the FastAPI app instance
 from app.main import app
+from app.auth import get_current_user_id
 
 @pytest.fixture(scope="session")
 def client():
@@ -40,3 +41,11 @@ def clear_emulator_data():
         except requests.exceptions.ConnectionError as e:
             pytest.fail(f"Could not connect to Firestore emulator at {emulator_host}. Is it running? Error: {e}")
     yield
+
+# --- Mock Authentication ---
+def override_get_current_user_id():
+    """A mock version of the authentication dependency that returns a test user ID."""
+    return "test_user_01"
+
+# Apply the dependency override to the app
+app.dependency_overrides[get_current_user_id] = override_get_current_user_id
