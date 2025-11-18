@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - Phase-02
+      - Phase-03
 
 jobs:
   deploy:
