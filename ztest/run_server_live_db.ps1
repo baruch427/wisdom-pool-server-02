@@ -5,7 +5,26 @@
 # - Viewing data in Firebase Console (https://console.firebase.google.com)
 # - No Java/emulator required
 
-# Stop on any error
+# Check if Docker is running (suppress all output)
+try {
+    $ErrorActionPreference = "SilentlyContinue"
+    $null = docker info 2>&1
+    $dockerRunning = $LASTEXITCODE -eq 0
+    $ErrorActionPreference = "Stop"
+    
+    if (-not $dockerRunning) {
+        Write-Host "Error: Docker Desktop is not running." -ForegroundColor Red
+        Write-Host "Please start Docker Desktop and try again." -ForegroundColor Red
+        exit 1
+    }
+} catch {
+    $ErrorActionPreference = "Stop"
+    Write-Host "Error: Docker Desktop is not running." -ForegroundColor Red
+    Write-Host "Please start Docker Desktop and try again." -ForegroundColor Red
+    exit 1
+}
+
+# Stop on any error from here on
 $ErrorActionPreference = "Stop"
 
 Write-Host "--- Starting Development Server with Real Firebase ---" -ForegroundColor Green

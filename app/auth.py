@@ -19,15 +19,22 @@ else:
     except Exception as e:
         logging.error(f"Failed to initialize Clerk: {e}")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 
 async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
+    # For local testing without authentication, return a test user ID
     if not clerk:
+        logging.info("Auth not configured - using test user ID: test_user_123")
+        return "test_user_123"
+    
+    if not token:
         raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Authentication is not configured",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+    
     try:
         decoded_token = clerk.verify_token(token)
         user_id = decoded_token["sub"]

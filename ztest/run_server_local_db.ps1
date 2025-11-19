@@ -4,6 +4,14 @@
 # Stop on any error
 $ErrorActionPreference = "Stop"
 
+# Check if Docker is running
+docker info > $null 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: Docker Desktop is not running." -ForegroundColor Red
+    Write-Host "Please start Docker Desktop and try again." -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "--- Starting Test Environment with Emulator (Docker Compose) ---" -ForegroundColor Green
 Write-Host "The server will be available at http://localhost:8000"
 Write-Host "The interactive API docs (Swagger UI) will be at http://localhost:8000/docs"

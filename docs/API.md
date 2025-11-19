@@ -1,11 +1,21 @@
 # Wisdom Pool Server API
 
 **Version:** 1.3
-**Date:** November 18, 2025
+**Date:** November 19, 2025
 
 This document outlines the API endpoints for the Wisdom Pool Server.
 
 ## Monitoring
+
+- **Endpoint:** `GET /`
+- **Description:** Returns a welcome message.
+- **Arguments:** None
+- **Return Value:** `JSON`
+  ```json
+  {
+    "message": "Server is running"
+  }
+  ```
 
 ### Health Check
 
@@ -171,31 +181,37 @@ This document outlines the API endpoints for the Wisdom Pool Server.
 - **Arguments:**
   - **Path Parameters:**
     - `stream_id`: (string) The ID of the stream to add the drop to.
-  - **Request Body:**
-    - `drops`: `DropContent` or `List[DropContent]`.
+  - **Request Body:** A JSON object with the following fields:
+    - `drops`: A `DropContent` object for a single drop, or a `List[DropContent]` for multiple drops.
+    - `creator_id`: (string) The ID of the user creating the drop(s).
       ```json
-      // Single drop
+      // Single drop example
       {
-        "title": "What is superposition?",
-        "text": "Superposition is a fundamental principle of quantum mechanics.",
-        "images": ["https://example.com/superposition.jpg"],
-        "type": "text"
+        "drops": {
+          "title": "What is superposition?",
+          "text": "Superposition is a fundamental principle of quantum mechanics.",
+          "images": ["https://example.com/superposition.jpg"],
+          "type": "text"
+        },
+        "creator_id": "user_abc"
       }
       ```
       ```json
-      // Multiple drops
-      [
-        {
-          "title": "First Drop",
-          "text": "This is the first drop."
-        },
-        {
-          "title": "Second Drop",
-          "text": "This is the second drop."
-        }
-      ]
+      // Multiple drops example
+      {
+        "drops": [
+          {
+            "title": "First Drop",
+            "text": "This is the first drop."
+          },
+          {
+            "title": "Second Drop",
+            "text": "This is the second drop."
+          }
+        ],
+        "creator_id": "user_abc"
+      }
       ```
-    - `creator_id`: (string) The ID of the user creating the drop.
 - **Return Value:** `AddDropResponse` (for single drop) or `AddDropsResponse` (for multiple drops)
   ```json
   // Single drop response

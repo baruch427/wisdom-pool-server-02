@@ -7,6 +7,14 @@
 # Stop on any error
 $ErrorActionPreference = "Stop"
 
+# Check if Docker is running
+docker info > $null 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: Docker Desktop is not running." -ForegroundColor Red
+    Write-Host "Please start Docker Desktop and try again." -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "--- Starting Test Environment (Docker Compose) ---" -ForegroundColor Green
 # Start containers in detached mode
 docker-compose -f ztest/docker-compose.automated.yml up --build -d

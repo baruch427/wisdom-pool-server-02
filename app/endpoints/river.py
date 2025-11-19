@@ -9,7 +9,7 @@ from app.models import (
     UserStreamProgress,
 )
 from typing import List, Optional
-import logging
+from app.logger import app_logger
 
 router = APIRouter()
 
@@ -24,12 +24,14 @@ async def get_river_feed(
     """
     Fetches the vertical list of streams for the main view, joined with user progress.
     """
+    app_logger.info(f"Fetching river feed for pool {pool_id}, user {user_id}, cursor={cursor}, limit={limit}")
     try:
         # 1. Query Streams for the given pool
         query = streams_collection.where("pool_id", "==", pool_id).limit(limit)
         if cursor:
             cursor_doc = streams_collection.document(cursor).get()
             if not cursor_doc.exists:
+                app_logger.warning(f"Cursor document {cursor} not found for river feed")
                 raise HTTPException(status_code=404, detail="Cursor document not found")
             query = query.start_after(cursor_doc)
 
@@ -58,10 +60,11 @@ async def get_river_feed(
         # Determine the next cursor
         next_cursor_val = streams_with_progress[-1].stream_id if len(streams_with_progress) == limit else None
 
+        app_logger.info(f"Successfully retrieved {len(streams_with_progress)} streams for river feed")
         return RiverFeedResponse(streams=streams_with_progress, next_cursor=next_cursor_val)
 
     except Exception as e:
-        logging.error(f"Error getting river feed for pool {pool_id}: {e}")
+        app_logger.error(f"Error getting river feed for pool {pool_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve river feed.",
