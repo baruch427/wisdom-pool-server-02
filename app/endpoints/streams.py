@@ -1,7 +1,15 @@
 from fastapi import APIRouter, HTTPException, status, Body, Query
 from app.models import (
-    Stream, StreamContent, Drop, DropContent, StreamDropPlacement,
-    AddDropResponse, GetDropsResponse, DropInStream, AddDropsResponse
+    Stream,
+    StreamContent,
+    Drop,
+    DropContent,
+    StreamDropPlacement,
+    AddDropResponse,
+    GetDropsResponse,
+    DropInStream,
+    AddDropsResponse,
+    StreamListResponse,
 )
 from app.db import (
     db, streams_collection, drops_collection,
@@ -15,6 +23,62 @@ from app.logger import app_logger
 
 
 router = APIRouter()
+
+
+@router.get(
+    "/pools/{pool_id}/streams",
+    response_model=StreamListResponse,
+)
+def list_streams_in_pool(
+    pool_id: str,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    creator_id: Optional[str] = Query(None),
+):
+    """Returns paginated streams inside a pool."""
+
+    app_logger.info(
+        "Listing streams for pool %s with limit=%s offset=%s creator_id=%s",
+        pool_id,
+        limit,
+        offset,
+        creator_id,
+    )
+
+    try:
+        pool_doc = pools_collection.document(pool_id).get()
+        if not pool_doc.exists:
+            raise HTTPException(status_code=404, detail="Pool not found")
+
+        query = streams_collection.where("pool_id", "==", pool_id)
+        if creator_id:
+            query = query.where("creator_id", "==", creator_id)
+
+        total_count = len(list(query.stream()))
+
+        ordered_query = query.order_by("created_at")
+        if offset:
+            ordered_query = ordered_query.offset(offset)
+
+        stream_docs = ordered_query.limit(limit).stream()
+        streams = [Stream(**doc.to_dict()) for doc in stream_docs]
+
+        next_offset = offset + len(streams)
+        has_more = next_offset < total_count
+
+        return StreamListResponse(
+            streams=streams,
+            total_count=total_count,
+            has_more=has_more,
+            next_offset=next_offset if has_more else None,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        app_logger.error(
+            "Failed listing streams for pool %s: %s", pool_id, e, exc_info=True
+        )
+        raise HTTPException(status_code=500, detail="Failed to list streams.")
 
 
 @router.post(
@@ -52,10 +116,19 @@ def create_stream(
         )
         
         streams_collection.document(stream_id).set(new_stream.dict())
-        app_logger.info(f"Successfully created stream {stream_id} in pool {pool_id}")
+        app_logger.info(
+            "Successfully created stream %s in pool %s",
+            stream_id,
+            pool_id,
+        )
         return new_stream
     except Exception as e:
-        app_logger.error(f"Failed to create stream in pool {pool_id}: {e}", exc_info=True)
+        app_logger.error(
+            "Failed to create stream in pool %s: %s",
+            pool_id,
+            e,
+            exc_info=True,
+        )
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(status_code=500, detail="Failed to create stream.")
@@ -74,10 +147,18 @@ def get_stream(stream_id: str):
         app_logger.info(f"Successfully retrieved stream {stream_id}")
         return doc.to_dict()
     except Exception as e:
-        app_logger.error(f"Failed to retrieve stream {stream_id}: {e}", exc_info=True)
+        app_logger.error(
+            "Failed to retrieve stream %s: %s",
+            stream_id,
+            e,
+            exc_info=True,
+        )
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(status_code=500, detail="Failed to retrieve stream.")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve stream.",
+        )
 
 
 def _add_drops_transactional(transaction, stream_id, drops, creator_id):
@@ -190,7 +271,9 @@ def add_drop_to_stream(
             return added_drops[0]
         else:
             app_logger.info(
-                f"Successfully added {len(added_drops)} drops to stream {stream_id}"
+                "Successfully added %s drops to stream %s",
+                len(added_drops),
+                stream_id,
             )
             return AddDropsResponse(drops=added_drops)
     except Exception as e:
@@ -238,7 +321,11 @@ def get_drops_in_stream(
             first_placement_id = stream_data.get('first_drop_placement_id')
             if not first_placement_id:
                 # No drops in stream
-                return GetDropsResponse(drops=[], has_more=False, total_count=0)
+                return GetDropsResponse(
+                    drops=[],
+                    has_more=False,
+                    total_count=0,
+                )
 
             start_at_doc = stream_drops_collection.document(
                 first_placement_id
@@ -286,7 +373,9 @@ def get_drops_in_stream(
         total_count = len(list(total_count_query.stream()))
         
         app_logger.info(
-            f"Successfully retrieved {len(drops_list)} drops for stream {stream_id}"
+            "Successfully retrieved %s drops for stream %s",
+            len(drops_list),
+            stream_id,
         )
         return GetDropsResponse(
             drops=drops_list, has_more=has_more, total_count=total_count
