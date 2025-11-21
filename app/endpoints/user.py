@@ -1,17 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from app.db import users_collection
 from app.auth import get_current_user_id
-from app.models import (
-    UserProgress,
-    UserSessionSyncResponse,
-    LastActiveContext,
-    StreamHistoryEntry,
-    UserState,
-)
+from app.models import UserProgress, RiverResponse, RiverRecord
 from datetime import datetime, timezone
 from app.logger import app_logger
+from typing import Optional
 
 router = APIRouter(prefix="/user")
+
+
+def _parse_timestamp(timestamp: Optional[str]) -> Optional[datetime]:
+    """Parse ISO-8601 timestamps while tolerating a trailing Z."""
+    if not timestamp:
+        return None
+    try:
+        normalized = timestamp.replace("Z", "+00:00")
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
 
 
 @router.post("/progress", status_code=204)
@@ -25,7 +31,11 @@ async def update_user_progress(
     app_logger.info(f"Updating progress for user {user_id}: {progress}")
     try:
         now = datetime.now(timezone.utc)
-        user_state_ref = users_collection.document(user_id).collection("progress").document("main")
+        user_state_ref = (
+            users_collection.document(user_id)
+            .collection("progress")
+            .document("main")
+        )
 
         update_data = {
             "last_active_context": {
@@ -48,38 +58,83 @@ async def update_user_progress(
         app_logger.info(f"Successfully updated progress for user {user_id}")
 
     except Exception as e:
-        app_logger.error(f"Error updating user progress for {user_id}: {e}", exc_info=True)
+        app_logger.error(
+            f"Error updating user progress for {user_id}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
             detail="Failed to update user progress.",
         )
 
 
-@router.get("/session-sync", response_model=UserSessionSyncResponse)
-async def get_user_session_sync(user_id: str = Depends(get_current_user_id)):
-    """
-    Called on application bootstrap to decide where to route the user.
-    Returns the last active context or an empty state if no history exists.
-    """
-    app_logger.info(f"Fetching session sync for user {user_id}")
+@router.get("/river", response_model=RiverResponse)
+async def get_user_river(
+    limit: int = Query(30, ge=1, le=30),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Return the user's recent stream history ordered by last activity."""
+    app_logger.info(
+        f"Fetching river for user {user_id} with limit {limit}"
+    )
     try:
-        user_state_ref = users_collection.document(user_id).collection("progress").document("main")
-        doc = user_state_ref.get()
+        progress_doc = (
+            users_collection.document(user_id)
+            .collection("progress")
+            .document("main")
+            .get()
+        )
 
-        if doc.exists:
-            user_state = UserState.parse_obj(doc.to_dict())
-            app_logger.info(f"Found existing session history for user {user_id}")
-            return UserSessionSyncResponse(
-                last_active_context=user_state.last_active_context,
-                has_history=user_state.last_active_context is not None,
+        if not progress_doc.exists:
+            app_logger.info(
+                f"No progress document found for user {user_id}; "
+                "returning empty river"
             )
-        else:
-            app_logger.info(f"No session history found for user {user_id}")
-            return UserSessionSyncResponse(last_active_context=None, has_history=False)
+            return RiverResponse(records=[])
 
+        payload = progress_doc.to_dict() or {}
+        stream_history = payload.get("stream_history") or {}
+
+        river_records = []
+        for stream_id, history in stream_history.items():
+            parsed_timestamp = _parse_timestamp(history.get("updated_at"))
+            if not parsed_timestamp:
+                app_logger.warning(
+                    f"Skipping river record for user {user_id}, stream "
+                    f"{stream_id} due to missing timestamp"
+                )
+                continue
+
+            river_records.append(
+                RiverRecord(
+                    stream_id=stream_id,
+                    last_read_drop_id=history.get("last_read_drop_id"),
+                    last_read_placement_id=history.get(
+                        "last_read_placement_id"
+                    ),
+                    updated_at=parsed_timestamp,
+                )
+            )
+
+        river_records.sort(key=lambda record: record.updated_at, reverse=True)
+        trimmed_records = river_records[:limit]
+
+        app_logger.info(
+            f"Returning {len(trimmed_records)} river records for user "
+            f"{user_id}"
+        )
+        return RiverResponse(records=trimmed_records)
+
+    except HTTPException:
+        raise
     except Exception as e:
-        app_logger.error(f"Error getting session sync for user {user_id}: {e}", exc_info=True)
+        app_logger.error(
+            f"Error retrieving river for user {user_id}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
-            detail="Failed to retrieve user session data.",
+            detail="Failed to load user river.",
         )
+
+

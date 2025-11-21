@@ -339,69 +339,26 @@ This document outlines the API endpoints for the Wisdom Pool Server.
   ```
 - **Return Value:** `204 No Content`
 
-### Get User Session Sync
+### Get User River
 
-- **Endpoint:** `GET /api/v1/user/session-sync`
-- **Description:** Called on application bootstrap to decide where to route the user. Returns the user's last known position.
+- **Endpoint:** `GET /api/v1/user/river`
+- **Description:** Returns the user's recent reading history ("river") ordered by the last time each stream was touched, newest first, capped at 30 records.
 - **Auth:** Required (uses `get_current_user_id` dependency)
-- **Return Value:**
+- **Query Parameters:**
+  - `limit` (integer, optional, default: 30, max: 30) — number of records to return.
+- **Return Value:** `RiverResponse`
   ```json
   {
-    "last_active_context": {
-      "pool_id": "string",
-      "stream_id": "string",
-      "drop_id": "string",
-      "placement_id": "string",
-      "timestamp": "2025-11-18T12:00:00.000Z"
-    },
-    "has_history": true
-  }
-  ```
-  *If no history exists, `last_active_context` will be `null` and `has_history` will be `false`.*
-
----
-
-## River Feed
-
-### Get River Feed
-
-- **Endpoint:** `GET /api/v1/pools/{pool_id}/river`
-- **Description:** Fetches the vertical list of streams for the main view, joined with the user's progress for each stream. This endpoint is defined in both the `pools` router and the `river` router.
-- **Auth:** Required (uses `get_current_user_id` dependency)
-- **Arguments:**
-  - **Path Parameters:**
-    - `pool_id`: (string) The ID of the pool to get the river for.
-  - **Query Parameters:**
-    - `cursor`: (string, optional) The `stream_id` to start pagination from.
-    - `limit`: (integer, optional, default: 5) The maximum number of streams to return.
-- **Return Value:**
-  ```json
-  {
-    "streams": [
+    "records": [
       {
         "stream_id": "stream_456",
-        "pool_id": "pool_123",
-        "creator_id": "user_abc",
-        "created_at": "2023-10-27T10:00:00.000Z",
-        "first_drop_placement_id": "placement_789",
-        "last_drop_placement_id": "placement_987",
-        "content": {
-            "title": "Exploring Quantum Mechanics",
-            "description": "A stream of thoughts on quantum physics.",
-            "ai_framing": "This stream is framed as a journey from classical to quantum physics.",
-            "category": "Science",
-            "image": "https://example.com/image.jpg"
-        },
-        "user_progress": {
-           "last_read_placement_id": "placement_888",
-           "is_completed": false
-        }
+        "last_read_drop_id": "drop_abc",
+        "last_read_placement_id": "placement_123",
+        "updated_at": "2025-11-20T18:25:43.511Z"
       }
-    ],
-    "next_cursor": "stream_789"
+    ]
   }
   ```
-  *If `user_progress` is not available for a stream, `last_read_placement_id` will be `null` and `is_completed` will be `false`.*
 
 ---
 
