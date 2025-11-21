@@ -4,24 +4,43 @@ from app.auth import get_current_user_id
 from app.models import UserProgress, RiverResponse, RiverRecord
 from datetime import datetime, timezone
 from app.logger import app_logger
-from typing import Optional
+from typing import Any, Optional
 
 router = APIRouter(prefix="/user")
 
 
-def _parse_timestamp(timestamp: Optional[str]) -> Optional[datetime]:
-    """Parse ISO-8601 timestamps while tolerating a trailing Z."""
-    if not timestamp:
+def _parse_timestamp(timestamp: Optional[Any]) -> Optional[datetime]:
+    """Normalize Firestore/native timestamps into aware datetimes."""
+    if timestamp is None:
         return None
-    try:
-        normalized = timestamp.replace("Z", "+00:00")
-        return datetime.fromisoformat(normalized)
-    except ValueError:
-        return None
+
+    if isinstance(timestamp, datetime):
+        return (
+            timestamp
+            if timestamp.tzinfo
+            else timestamp.replace(tzinfo=timezone.utc)
+        )
+
+    if isinstance(timestamp, (int, float)):
+        return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+
+    if isinstance(timestamp, str):
+        try:
+            normalized = timestamp.replace("Z", "+00:00")
+            dt_value = datetime.fromisoformat(normalized)
+            return (
+                dt_value
+                if dt_value.tzinfo
+                else dt_value.replace(tzinfo=timezone.utc)
+            )
+        except ValueError:
+            return None
+
+    return None
 
 
 @router.post("/progress", status_code=204)
-async def update_user_progress(
+def update_user_progress(
     progress: UserProgress, user_id: str = Depends(get_current_user_id)
 ):
     """
@@ -43,12 +62,12 @@ async def update_user_progress(
                 "stream_id": progress.stream_id,
                 "drop_id": progress.drop_id,
                 "placement_id": progress.placement_id,
-                "timestamp": now.isoformat(),
+                "timestamp": now,
             },
             f"stream_history.{progress.stream_id}": {
                 "last_read_drop_id": progress.drop_id,
                 "last_read_placement_id": progress.placement_id,
-                "updated_at": now.isoformat(),
+                "updated_at": now,
             },
         }
 
@@ -69,7 +88,7 @@ async def update_user_progress(
 
 
 @router.get("/river", response_model=RiverResponse)
-async def get_user_river(
+def get_user_river(
     limit: int = Query(30, ge=1, le=30),
     user_id: str = Depends(get_current_user_id),
 ):
@@ -95,15 +114,26 @@ async def get_user_river(
         payload = progress_doc.to_dict() or {}
         stream_history = payload.get("stream_history") or {}
 
+        # Firestore may materialize dotted field names (stream_history.<id>)
+        # when the document was created via a merged set. Fold those back into
+        # the stream_history map so older records remain visible.
+        for key, value in payload.items():
+            if not key.startswith("stream_history."):
+                continue
+            stream_id = key.split("stream_history.", 1)[1]
+            if stream_id and stream_id not in stream_history:
+                stream_history[stream_id] = value
+
         river_records = []
+        fallback_timestamp = datetime.min.replace(tzinfo=timezone.utc)
         for stream_id, history in stream_history.items():
             parsed_timestamp = _parse_timestamp(history.get("updated_at"))
             if not parsed_timestamp:
                 app_logger.warning(
-                    f"Skipping river record for user {user_id}, stream "
-                    f"{stream_id} due to missing timestamp"
+                    f"Falling back to sentinel timestamp for user {user_id}, "
+                    f"stream {stream_id} due to missing/invalid updated_at"
                 )
-                continue
+                parsed_timestamp = fallback_timestamp
 
             river_records.append(
                 RiverRecord(

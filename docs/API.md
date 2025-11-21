@@ -345,7 +345,7 @@ This document outlines the API endpoints for the Wisdom Pool Server.
 - **Description:** Returns the user's recent reading history ("river") ordered by the last time each stream was touched, newest first, capped at 30 records.
 - **Auth:** Required (uses `get_current_user_id` dependency)
 - **Query Parameters:**
-  - `limit` (integer, optional, default: 30, max: 30) — number of records to return.
+  - `limit` (integer, optional, default: 30, min: 1, max: 30) — number of records to return.
 - **Return Value:** `RiverResponse`
   ```json
   {
@@ -359,6 +359,7 @@ This document outlines the API endpoints for the Wisdom Pool Server.
     ]
   }
   ```
+- **Errors:** `422 Unprocessable Entity` if `limit` is outside the `[1, 30]` range.
 
 ---
 

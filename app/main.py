@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Response
-from app.endpoints import health, pools, streams, drops, user, river
+from app.endpoints import health, pools, streams, drops, user
 import datetime
 from app.logger import app_logger, log_stream
 
@@ -18,7 +18,6 @@ app.include_router(pools.router, prefix="/api/v1", tags=["Pools"])
 app.include_router(streams.router, prefix="/api/v1", tags=["Streams"])
 app.include_router(drops.router, prefix="/api/v1", tags=["Drops"])
 app.include_router(user.router, prefix="/api/v1", tags=["User"])
-app.include_router(river.router, prefix="/api/v1/pools", tags=["River"])
 
 
 @app.get("/logs", include_in_schema=False)
