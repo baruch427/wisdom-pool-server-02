@@ -328,13 +328,13 @@ This document outlines the API endpoints for the Wisdom Pool Server.
 ### Get drops in a stream
 
 - **Endpoint:** `GET /api/v1/streams/{stream_id}/drops`
-- **Description:** Get drops in a stream, with pagination.
+- **Description:** Get drops in a stream, with pagination. Supports both forward and backward traversal.
 - **Arguments:**
   - **Path Parameters:**
     - `stream_id`: (string) The ID of the stream.
   - **Query Parameters:**
-    - `from_placement_id`: (string, optional) The placement ID to start retrieving drops from. If not provided, starts from the beginning of the stream.
-    - `limit`: (integer, optional, default: 10) The maximum number of drops to return.
+    - `from_placement_id`: (string, optional) The placement ID to start retrieving drops from (inclusive). If not provided, starts from the beginning of the stream (for positive limit) or end of the stream (for negative limit).
+    - `limit`: (integer, optional, default: 10) The number of drops to return. **Positive values** (e.g., `limit=10`): include `from_placement_id` and retrieve forward (chronologically). **Negative values** (e.g., `limit=-10`): include `from_placement_id` and retrieve backward (reverse chronologically). Range: -50 to +50, excluding 0.
 - **Return Value:** `GetDropsResponse`
   ```json
   {

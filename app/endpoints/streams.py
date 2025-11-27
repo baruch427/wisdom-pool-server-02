@@ -293,14 +293,25 @@ def add_drop_to_stream(
 def get_drops_in_stream(
     stream_id: str,
     from_placement_id: Optional[str] = Query(None),
-    limit: int = Query(10, ge=1, le=50)
+    limit: int = Query(10, ge=-50, le=50)
 ):
     """
     Get drops in a stream, with pagination.
+    Positive limit: forward traversal (chronologically).
+    Negative limit: backward traversal (reverse chronologically).
     """
+    if limit == 0:
+        raise HTTPException(
+            status_code=422, detail="Limit cannot be zero"
+        )
+    
     app_logger.info(
         f"Attempting to get drops for stream {stream_id} with limit {limit}"
     )
+    
+    is_forward = limit > 0
+    actual_limit = abs(limit)
+    
     try:
         stream_doc = streams_collection.document(stream_id).get()
         if not stream_doc.exists:
@@ -317,26 +328,56 @@ def get_drops_in_stream(
                     status_code=404, detail="Starting placement not found"
                 )
 
-            query = stream_drops_collection.where(
-                'stream_id', '==', stream_id
-            ).order_by('added_at').start_at(start_at_doc).limit(limit)
+            if is_forward:
+                # Forward: order by added_at ascending, start at placement
+                query = stream_drops_collection.where(
+                    'stream_id', '==', stream_id
+                ).order_by('added_at').start_at(start_at_doc).limit(actual_limit)
+            else:
+                # Backward: order by added_at descending, start at placement
+                query = stream_drops_collection.where(
+                    'stream_id', '==', stream_id
+                ).order_by('added_at', direction=firestore.Query.DESCENDING).start_at(
+                    start_at_doc
+                ).limit(actual_limit)
         else:
-            # If no from_placement_id is provided, start from the beginning
-            first_placement_id = stream_data.get('first_drop_placement_id')
-            if not first_placement_id:
-                # No drops in stream
-                return GetDropsResponse(
-                    drops=[],
-                    has_more=False,
-                    total_count=0,
-                )
+            # If no from_placement_id is provided
+            if is_forward:
+                # Start from the beginning
+                first_placement_id = stream_data.get('first_drop_placement_id')
+                if not first_placement_id:
+                    # No drops in stream
+                    return GetDropsResponse(
+                        drops=[],
+                        has_more=False,
+                        total_count=0,
+                    )
 
-            start_at_doc = stream_drops_collection.document(
-                first_placement_id
-            ).get()
-            query = stream_drops_collection.where(
-                'stream_id', '==', stream_id
-            ).order_by('added_at').start_at(start_at_doc).limit(limit)
+                start_at_doc = stream_drops_collection.document(
+                    first_placement_id
+                ).get()
+                query = stream_drops_collection.where(
+                    'stream_id', '==', stream_id
+                ).order_by('added_at').start_at(start_at_doc).limit(actual_limit)
+            else:
+                # Start from the end
+                last_placement_id = stream_data.get('last_drop_placement_id')
+                if not last_placement_id:
+                    # No drops in stream
+                    return GetDropsResponse(
+                        drops=[],
+                        has_more=False,
+                        total_count=0,
+                    )
+
+                start_at_doc = stream_drops_collection.document(
+                    last_placement_id
+                ).get()
+                query = stream_drops_collection.where(
+                    'stream_id', '==', stream_id
+                ).order_by('added_at', direction=firestore.Query.DESCENDING).start_at(
+                    start_at_doc
+                ).limit(actual_limit)
 
         placements = query.stream()
         
@@ -363,9 +404,16 @@ def get_drops_in_stream(
         # Check if there are more drops
         has_more = False
         if last_placement_doc:
-            next_query = stream_drops_collection.where(
-                'stream_id', '==', stream_id
-            ).order_by('added_at').start_after(last_placement_doc).limit(1)
+            if is_forward:
+                next_query = stream_drops_collection.where(
+                    'stream_id', '==', stream_id
+                ).order_by('added_at').start_after(last_placement_doc).limit(1)
+            else:
+                next_query = stream_drops_collection.where(
+                    'stream_id', '==', stream_id
+                ).order_by('added_at', direction=firestore.Query.DESCENDING).start_after(
+                    last_placement_doc
+                ).limit(1)
             if next(next_query.stream(), None):
                 has_more = True
 
