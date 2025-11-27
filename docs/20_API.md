@@ -428,3 +428,99 @@ This document outlines the API endpoints for the Wisdom Pool Server.
 ---
 
 ## Data Models
+
+### PoolContent
+
+```json
+{
+  "title": "string",
+  "description": "string"
+}
+```
+
+### Pool
+
+```json
+{
+  "pool_id": "string",
+  "creator_id": "string",
+  "created_at": "ISO 8601 datetime",
+  "content": "PoolContent"
+}
+```
+
+### StreamContent
+
+```json
+{
+  "title": "string",
+  "description": "string",
+  "ai_framing": "string (optional)",
+  "category": "string (optional)",
+  "image": "string (optional, URL)"
+}
+```
+
+### Stream
+
+```json
+{
+  "stream_id": "string",
+  "pool_id": "string",
+  "creator_id": "string",
+  "created_at": "ISO 8601 datetime",
+  "first_drop_placement_id": "string or null",
+  "last_drop_placement_id": "string or null",
+  "content": "StreamContent"
+}
+```
+
+### DropContent
+
+```json
+{
+  "title": "string (optional)",
+  "text": "string",
+  "images": ["string (URL)"] (optional),
+  "type": "string (optional, default: 'text')"
+}
+```
+
+### Drop
+
+```json
+{
+  "drop_id": "string",
+  "creator_id": "string",
+  "created_at": "ISO 8601 datetime",
+  "content": "DropContent"
+}
+```
+
+### UserProgress
+
+```json
+{
+  "pool_id": "string",
+  "stream_id": "string",
+  "placement_id": "string"
+}
+```
+
+### RiverRecord
+
+```json
+{
+  "stream_id": "string",
+  "last_read_placement_id": "string or null",
+  "updated_at": "ISO 8601 datetime"
+}
+```
+
+### RiverResponse
+
+```json
+{
+  "records": ["RiverRecord"]
+}
+```

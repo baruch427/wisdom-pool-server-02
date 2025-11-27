@@ -319,7 +319,7 @@ def get_drops_in_stream(
 
             query = stream_drops_collection.where(
                 'stream_id', '==', stream_id
-            ).order_by('added_at').start_after(start_at_doc).limit(limit)
+            ).order_by('added_at').start_at(start_at_doc).limit(limit)
         else:
             # If no from_placement_id is provided, start from the beginning
             first_placement_id = stream_data.get('first_drop_placement_id')
