@@ -296,9 +296,9 @@ def get_drops_in_stream(
     limit: int = Query(10, ge=-50, le=50)
 ):
     """
-    Get drops in a stream, with pagination.
-    Positive limit: forward traversal (chronologically).
-    Negative limit: backward traversal (reverse chronologically).
+    Get drops in a stream using linked list traversal.
+    Positive limit: forward traversal (using next_placement_id).
+    Negative limit: backward traversal (using prev_placement_id).
     """
     if limit == 0:
         raise HTTPException(
@@ -319,79 +319,57 @@ def get_drops_in_stream(
 
         stream_data = stream_doc.to_dict()
         
+        # Determine starting placement
         if from_placement_id:
-            start_at_doc = stream_drops_collection.document(
-                from_placement_id
-            ).get()
-            if not start_at_doc.exists:
-                raise HTTPException(
-                    status_code=404, detail="Starting placement not found"
-                )
-
-            if is_forward:
-                # Forward: order by added_at ascending, start at placement
-                query = stream_drops_collection.where(
-                    'stream_id', '==', stream_id
-                ).order_by('added_at').start_at(start_at_doc).limit(actual_limit)
-            else:
-                # Backward: order by added_at descending, start at placement
-                query = stream_drops_collection.where(
-                    'stream_id', '==', stream_id
-                ).order_by('added_at', direction=firestore.Query.DESCENDING).start_at(
-                    start_at_doc
-                ).limit(actual_limit)
+            current_placement_id = from_placement_id
         else:
-            # If no from_placement_id is provided
+            # No starting point specified
             if is_forward:
-                # Start from the beginning
-                first_placement_id = stream_data.get('first_drop_placement_id')
-                if not first_placement_id:
-                    # No drops in stream
-                    return GetDropsResponse(
-                        drops=[],
-                        has_more=False,
-                        total_count=0,
-                    )
-
-                start_at_doc = stream_drops_collection.document(
-                    first_placement_id
-                ).get()
-                query = stream_drops_collection.where(
-                    'stream_id', '==', stream_id
-                ).order_by('added_at').start_at(start_at_doc).limit(actual_limit)
+                current_placement_id = stream_data.get('first_drop_placement_id')
             else:
-                # Start from the end
-                last_placement_id = stream_data.get('last_drop_placement_id')
-                if not last_placement_id:
-                    # No drops in stream
-                    return GetDropsResponse(
-                        drops=[],
-                        has_more=False,
-                        total_count=0,
-                    )
-
-                start_at_doc = stream_drops_collection.document(
-                    last_placement_id
-                ).get()
-                query = stream_drops_collection.where(
-                    'stream_id', '==', stream_id
-                ).order_by('added_at', direction=firestore.Query.DESCENDING).start_at(
-                    start_at_doc
-                ).limit(actual_limit)
-
-        placements = query.stream()
+                current_placement_id = stream_data.get('last_drop_placement_id')
         
+        if not current_placement_id:
+            # No drops in stream
+            return GetDropsResponse(
+                drops=[],
+                has_more=False,
+                total_count=0,
+            )
+        
+        # Traverse the linked list
         drops_list = []
-        last_placement_doc = None
-        for placement in placements:
-            placement_data = placement.to_dict()
+        visited_count = 0
+        
+        while current_placement_id and visited_count < actual_limit:
+            # Get the placement
+            placement_doc = stream_drops_collection.document(
+                current_placement_id
+            ).get()
+            
+            if not placement_doc.exists:
+                app_logger.warning(
+                    f"Placement {current_placement_id} not found in stream {stream_id}"
+                )
+                break
+            
+            placement_data = placement_doc.to_dict()
+            
+            # Verify this placement belongs to the stream
+            if placement_data.get('stream_id') != stream_id:
+                app_logger.error(
+                    f"Placement {current_placement_id} does not belong to stream {stream_id}"
+                )
+                break
+            
+            # Get the drop
             drop_doc = drops_collection.document(
                 placement_data['drop_id']
             ).get()
+            
             if drop_doc.exists:
                 drop_data = drop_doc.to_dict()
                 
-                # Combine drop data with placement data
                 drop_in_stream = DropInStream(
                     **drop_data,
                     placement_id=placement_data['placement_id'],
@@ -399,24 +377,17 @@ def get_drops_in_stream(
                     prev_placement_id=placement_data.get('prev_placement_id')
                 )
                 drops_list.append(drop_in_stream)
-            last_placement_doc = placement
-
-        # Check if there are more drops
-        has_more = False
-        if last_placement_doc:
+                visited_count += 1
+            
+            # Move to next placement
             if is_forward:
-                next_query = stream_drops_collection.where(
-                    'stream_id', '==', stream_id
-                ).order_by('added_at').start_after(last_placement_doc).limit(1)
+                current_placement_id = placement_data.get('next_placement_id')
             else:
-                next_query = stream_drops_collection.where(
-                    'stream_id', '==', stream_id
-                ).order_by('added_at', direction=firestore.Query.DESCENDING).start_after(
-                    last_placement_doc
-                ).limit(1)
-            if next(next_query.stream(), None):
-                has_more = True
-
+                current_placement_id = placement_data.get('prev_placement_id')
+        
+        # Check if there are more drops
+        has_more = current_placement_id is not None
+        
         # For total_count, we would ideally maintain a counter on the stream
         # document. For now, we'll do a full count, but this is not scalable.
         total_count_query = stream_drops_collection.where(
@@ -425,7 +396,7 @@ def get_drops_in_stream(
         total_count = len(list(total_count_query.stream()))
         
         app_logger.info(
-            "Successfully retrieved %s drops for stream %s",
+            "Successfully retrieved %s drops for stream %s using linked list",
             len(drops_list),
             stream_id,
         )
