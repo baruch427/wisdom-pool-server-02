@@ -180,6 +180,8 @@ def _add_drops_transactional(transaction, stream_id, drops, creator_id):
     added_drops = []
     prev_placement_id = stream_data.get('last_drop_placement_id')
 
+    first_pointer_set = bool(stream_data.get('first_drop_placement_id'))
+
     for drop_content in drops:
         # 1. Create the new drop
         drop_id = str(uuid.uuid4())
@@ -219,8 +221,10 @@ def _add_drops_transactional(transaction, stream_id, drops, creator_id):
 
         # 4. Update the stream's head and tail pointers
         update_data = {'last_drop_placement_id': placement_id}
-        if not stream_data.get('first_drop_placement_id'):
+        if not first_pointer_set:
             update_data['first_drop_placement_id'] = placement_id
+            first_pointer_set = True
+            stream_data['first_drop_placement_id'] = placement_id
         
         transaction.update(stream_ref, update_data)
 

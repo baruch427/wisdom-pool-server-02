@@ -30,6 +30,6 @@ This setup connects the server to the actual Firebase project database. It's use
 If you are frequently running the live database server, you can use the following PowerShell commands to quickly navigate and start it. You can save this as a `.ps1` file (e.g., `start_live_server.ps1`) in the root directory for easy access.
 
 ```powershell
-C:\Users\Home\Dropbox\___WisdomPools\wisdom-pool-server-02
+cd C:\Users\Home\Dropbox\___WisdomPools\wisdom-pool-server-02
 ztest/run_server_live_db.ps1
 ```
