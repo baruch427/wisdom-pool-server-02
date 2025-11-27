@@ -71,7 +71,10 @@ def update_user_progress(
 
         # ToDo: Check if the stream is completed and set is_completed flag
 
-        user_state_ref.set(update_data, merge=True)
+        # Create document if it doesn't exist, then update
+        if not user_state_ref.get().exists:
+            user_state_ref.set({})
+        user_state_ref.update(update_data)
         app_logger.info(f"Successfully updated progress for user {user_id}")
 
     except Exception as e:
