@@ -399,7 +399,6 @@ This document outlines the API endpoints for the Wisdom Pool Server.
   {
     "pool_id": "string",
     "stream_id": "string",
-    "drop_id": "string",
     "placement_id": "string"
   }
   ```
@@ -418,7 +417,6 @@ This document outlines the API endpoints for the Wisdom Pool Server.
     "records": [
       {
         "stream_id": "stream_456",
-        "last_read_drop_id": "drop_abc",
         "last_read_placement_id": "placement_123",
         "updated_at": "2025-11-20T18:25:43.511Z"
       }

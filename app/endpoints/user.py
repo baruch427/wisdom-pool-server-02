@@ -60,12 +60,10 @@ def update_user_progress(
             "last_active_context": {
                 "pool_id": progress.pool_id,
                 "stream_id": progress.stream_id,
-                "drop_id": progress.drop_id,
                 "placement_id": progress.placement_id,
                 "timestamp": now,
             },
             f"stream_history.{progress.stream_id}": {
-                "last_read_drop_id": progress.drop_id,
                 "last_read_placement_id": progress.placement_id,
                 "updated_at": now,
             },
@@ -138,7 +136,6 @@ def get_user_river(
             river_records.append(
                 RiverRecord(
                     stream_id=stream_id,
-                    last_read_drop_id=history.get("last_read_drop_id"),
                     last_read_placement_id=history.get(
                         "last_read_placement_id"
                     ),

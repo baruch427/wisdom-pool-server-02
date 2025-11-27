@@ -136,13 +136,11 @@ class HealthStatus(BaseModel):
 class UserProgress(BaseModel):
     pool_id: str
     stream_id: str
-    drop_id: str
     placement_id: str
 
 
 class RiverRecord(BaseModel):
     stream_id: str
-    last_read_drop_id: Optional[str] = None
     last_read_placement_id: Optional[str] = None
     updated_at: datetime
 
