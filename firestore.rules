@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Deny all client access - only the server (using Admin SDK) can read/write
+    // The Admin SDK bypasses these rules, so it will continue to work
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
